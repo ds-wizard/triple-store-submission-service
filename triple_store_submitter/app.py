@@ -23,16 +23,30 @@ def validate_token(cfg: SubmitterConfig, request: web.Request):
 
 async def store_data(cfg: SubmitterConfig, request: web.Request):
     data = await request.content.read()
-
     g = rdflib.Graph()
     g.parse(data=data, format='turtle')
 
-    sparql = SPARQLWrapper.SPARQLWrapper(cfg.triple_store.sparql_endpoint)
-    sparql.setMethod('POST')
     triples = [
         f'{s.n3()} {p.n3()} {o.n3()} .' for s, p, o in g
     ]
-    sparql.setQuery('INSERT DATA { ' + '\n'.join(triples) + '}')
+
+    sparql = SPARQLWrapper.SPARQLWrapper(cfg.triple_store.sparql_endpoint)
+    sparql.setMethod('POST')
+
+    if cfg.triple_store.auth_username and cfg.triple_store.auth_password:
+        sparql.setHTTPAuth(SPARQLWrapper.DIGEST)
+        sparql.setCredentials(cfg.triple_store.auth_username, cfg.triple_store.auth_password)
+
+    if cfg.triple_store.graph_named is True and cfg.triple_store.graph_type:
+        t = rdflib.URIRef(cfg.triple_store.graph_type)
+        graph_uri = None
+        for s, p, o in g.triples((None, rdflib.RDF.type, t)):
+            graph_uri = s.n3()
+        if graph_uri is None:
+            logging.warning(f'Graph URI not found (type: {t})')
+        sparql.setQuery('DROP SILENT GRAPH ' + graph_uri + ';\nCREATE GRAPH ' + graph_uri + ';\nINSERT DATA { GRAPH ' + graph_uri + ' { ' + '\n'.join(triples) + '} };')
+    else:
+        sparql.setQuery('INSERT DATA { ' + '\n'.join(triples) + '}')
     sparql.setReturnFormat(SPARQLWrapper.JSON)
     sparql.query().convert()
 
@@ -75,17 +89,17 @@ async def submit_handler(request: web.Request):
     try:
         await store_data(cfg, request)
     except Exception as e:
-        return web.HTTPInternalServerError(
-            text=f'Failed to store data in triple store: {e}'
-        )
+        msg = f'Failed to store data in triple store: {e}'
+        logging.warning(msg)
+        return web.HTTPInternalServerError(text=msg)
 
     if cfg.fdp.distribution is not None:
         try:
             await update_metadata(cfg)
         except Exception as e:
-            return web.HTTPInternalServerError(
-                text=f'Failed to store metadata in FAIR Data Point: {e}'
-            )
+            msg = f'Failed to store metadata in FAIR Data Point: {e}'
+            logging.warning(msg)
+            return web.HTTPInternalServerError(text=msg)
 
     return web.HTTPNoContent()
 

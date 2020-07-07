@@ -1,9 +1,15 @@
 triple-store:
   sparql-endpoint:
-
-fdp:
-  token:
-  distribution:
-
-security:
-  token:
+#  auth:
+#    username:
+#    password:
+#  graph:
+#    named:
+#    type:
+#
+#fdp:
+#  token:
+#  distribution:
+#
+#security:
+#  token:
