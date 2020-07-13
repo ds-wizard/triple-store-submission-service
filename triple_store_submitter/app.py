@@ -33,8 +33,8 @@ async def store_data(cfg: SubmitterConfig, request: web.Request):
     sparql = SPARQLWrapper.SPARQLWrapper(cfg.triple_store.sparql_endpoint)
     sparql.setMethod('POST')
 
-    if cfg.triple_store.auth_username and cfg.triple_store.auth_password:
-        sparql.setHTTPAuth(SPARQLWrapper.DIGEST)
+    if cfg.triple_store.auth_method:
+        sparql.setHTTPAuth(SPARQLWrapper.BASIC)
         sparql.setCredentials(cfg.triple_store.auth_username, cfg.triple_store.auth_password)
 
     if cfg.triple_store.graph_named is True and cfg.triple_store.graph_type:

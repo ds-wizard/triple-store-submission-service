@@ -1,6 +1,6 @@
 import yaml
 
-from typing import Optional, List
+from typing import List
 
 
 class MissingConfigurationError(Exception):
@@ -11,9 +11,10 @@ class MissingConfigurationError(Exception):
 
 class TripleStoreConfig:
 
-    def __init__(self, sparql_endpoint: str, auth_username: str,
+    def __init__(self, sparql_endpoint: str, auth_method: str, auth_username: str,
                  auth_password: str, graph_named: str, graph_type: str):
         self.sparql_endpoint = sparql_endpoint
+        self.auth_method = auth_method
         self.auth_username = auth_username
         self.auth_password = auth_password
         self.graph_named = graph_named
@@ -56,6 +57,7 @@ class SubmitterConfigParser:
         'triple-store': {
             'sparql-endpoint': None,
             'auth': {
+                'method': 'BASIC',
                 'username': None,
                 'password': None,
             },
@@ -118,6 +120,7 @@ class SubmitterConfigParser:
     def _triple_store(self):
         return TripleStoreConfig(
             sparql_endpoint=self.get_or_default('triple-store', 'sparql-endpoint'),
+            auth_method=self.get_or_default('triple-store', 'auth', 'method'),
             auth_username=self.get_or_default('triple-store', 'auth', 'username'),
             auth_password=self.get_or_default('triple-store', 'auth', 'password'),
             graph_named=self.get_or_default('triple-store', 'graph', 'named'),

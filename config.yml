@@ -1,6 +1,7 @@
 triple-store:
   sparql-endpoint:
 #  auth:
+#    method:   # BASIC or DIGEST
 #    username:
 #    password:
 #  graph:
