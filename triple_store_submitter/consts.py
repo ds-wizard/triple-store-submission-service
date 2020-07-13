@@ -1,7 +1,7 @@
 
 PACKAGE_NAME = 'triple_store_submitter'
 NICE_NAME = 'DSW Triple Store Submission Service'
-PACKAGE_VERSION = '1.0.0'
+PACKAGE_VERSION = '1.1.0'
 ENV_CONFIG = 'SUBMISSION_CONFIG'
 
 _DEFAULT_BUILT_AT = 'BUILT_AT'
