@@ -15,16 +15,38 @@ from triple_store_submitter.config import SubmitterConfigParser, SubmitterConfig
 warnings.filterwarnings('ignore')
 
 
+INPUT_FORMATS = {
+    'application/n-quads': 'nquads',
+    'application/n-triples': 'nt',
+    'application/rdf+xml': 'xml',
+    'application/trig': 'trig',
+    'text/n3': 'n3',
+    'text/turtle': 'turtle',
+    'text/xml': 'trix',
+}
+
+GRAPH_CLASSES = {
+    'Graph': rdflib.Graph,
+    'ConjunctiveGraph': rdflib.ConjunctiveGraph,
+    'QuotedGraph': rdflib.graph.QuotedGraph,
+    'Dataset': rdflib.graph.Dataset,
+}
+
+
+def create_graph(class_name: str) -> rdflib.Graph:
+    return GRAPH_CLASSES.get(class_name, rdflib.Graph)()
+
+
 def validate_token(cfg: SubmitterConfig, request: web.Request):
     if cfg.security.token is None:
         return True
     return request.headers.get('Authorization') == f'Bearer {cfg.security.token}'
 
 
-async def store_data(cfg: SubmitterConfig, request: web.Request):
+async def store_data(cfg: SubmitterConfig, request: web.Request, input_format: str):
     data = await request.content.read()
-    g = rdflib.Graph()
-    g.parse(data=data, format='turtle')
+    g = create_graph(cfg.triple_store.graph_class)
+    g.parse(data=data, format=input_format)
 
     triples = [
         f'{s.n3()} {p.n3()} {o.n3()} .' for s, p, o in g
@@ -83,11 +105,12 @@ async def submit_handler(request: web.Request):
 
     if not validate_token(cfg, request):
         raise web.HTTPUnauthorized(text='Invalid token')
-    if request.headers.get('Content-Type').lower() != 'text/turtle':
-        raise web.HTTPUnsupportedMediaType(text='Unsupported content type')
+    content_type = request.headers.get('Content-Type').lower().split(';')[0]
+    if content_type not in INPUT_FORMATS.keys():
+        raise web.HTTPUnsupportedMediaType(text=f'Unsupported content type: {content_type}')
 
     try:
-        await store_data(cfg, request)
+        await store_data(cfg, request, input_format=INPUT_FORMATS[content_type])
     except Exception as e:
         msg = f'Failed to store data in triple store: {e}'
         logging.warning(msg)

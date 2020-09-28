@@ -5,6 +5,7 @@ triple-store:
 #    username:
 #    password:
 #  graph:
+#    class:
 #    named:
 #    type:
 #

@@ -12,11 +12,12 @@ class MissingConfigurationError(Exception):
 class TripleStoreConfig:
 
     def __init__(self, sparql_endpoint: str, auth_method: str, auth_username: str,
-                 auth_password: str, graph_named: str, graph_type: str):
+                 auth_password: str, graph_class: str, graph_named: str, graph_type: str):
         self.sparql_endpoint = sparql_endpoint
         self.auth_method = auth_method
         self.auth_username = auth_username
         self.auth_password = auth_password
+        self.graph_class = graph_class
         self.graph_named = graph_named
         self.graph_type = graph_type
 
@@ -62,6 +63,7 @@ class SubmitterConfigParser:
                 'password': None,
             },
             'graph': {
+                'class': 'Graph',
                 'named': False,
                 'type': None,
             },
@@ -123,6 +125,7 @@ class SubmitterConfigParser:
             auth_method=self.get_or_default('triple-store', 'auth', 'method'),
             auth_username=self.get_or_default('triple-store', 'auth', 'username'),
             auth_password=self.get_or_default('triple-store', 'auth', 'password'),
+            graph_class=self.get_or_default('triple-store', 'graph', 'class'),
             graph_named=self.get_or_default('triple-store', 'graph', 'named'),
             graph_type=self.get_or_default('triple-store', 'graph', 'type'),
         )
