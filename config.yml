@@ -15,3 +15,7 @@ triple-store:
 #
 #security:
 #  token:
+#
+#query:
+#  extra-queries: false
+#  strategy: basic

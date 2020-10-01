@@ -42,14 +42,23 @@ class LoggingConfig:
         self.message_format = message_format
 
 
+class QueriesConfig:
+
+    def __init__(self, extra_queries: bool, strategy: str):
+        self.extra_queries = extra_queries
+        self.strategy = strategy
+
+
 class SubmitterConfig:
 
     def __init__(self, triple_store: TripleStoreConfig, fdp: FDPConfig,
-                 security: SecurityConfig, logging: LoggingConfig):
+                 security: SecurityConfig, logging: LoggingConfig,
+                 queries: QueriesConfig):
         self.triple_store = triple_store
         self.fdp = fdp
         self.security = security
         self.logging = logging
+        self.queries = queries
 
 
 class SubmitterConfigParser:
@@ -79,6 +88,10 @@ class SubmitterConfigParser:
             'level': 'INFO',
             'format': '%(asctime)s | %(levelname)s | %(module)s: %(message)s',
         },
+        'queries': {
+            'extra-queries': False,
+            'strategy': 'basic',
+        }
     }
 
     REQUIRED = [
@@ -150,6 +163,13 @@ class SubmitterConfigParser:
             message_format=self.get_or_default('logging', 'format'),
         )
 
+    @property
+    def _queries(self):
+        return QueriesConfig(
+            extra_queries=self.get_or_default('queries', 'extra-queries'),
+            strategy=self.get_or_default('queries', 'strategy'),
+        )
+
     def parse_file(self, fp) -> SubmitterConfig:
         self.cfg = yaml.full_load(fp)
         self.validate()
@@ -158,4 +178,5 @@ class SubmitterConfigParser:
             fdp=self._fdp,
             security=self._security,
             logging=self._logging,
+            queries=self._queries,
         )

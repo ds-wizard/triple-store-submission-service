@@ -8,8 +8,9 @@ import warnings
 
 from aiohttp import web
 
-from triple_store_submitter.consts import BuildInfo, ENV_CONFIG
+from triple_store_submitter.consts import BuildInfo, ENV_CONFIG, DEFAULT_ENCODING
 from triple_store_submitter.config import SubmitterConfigParser, SubmitterConfig
+from triple_store_submitter.strategies import build_query
 
 
 warnings.filterwarnings('ignore')
@@ -25,17 +26,6 @@ INPUT_FORMATS = {
     'text/xml': 'trix',
 }
 
-GRAPH_CLASSES = {
-    'Graph': rdflib.Graph,
-    'ConjunctiveGraph': rdflib.ConjunctiveGraph,
-    'QuotedGraph': rdflib.graph.QuotedGraph,
-    'Dataset': rdflib.graph.Dataset,
-}
-
-
-def create_graph(class_name: str) -> rdflib.Graph:
-    return GRAPH_CLASSES.get(class_name, rdflib.Graph)()
-
 
 def validate_token(cfg: SubmitterConfig, request: web.Request):
     if cfg.security.token is None:
@@ -44,13 +34,11 @@ def validate_token(cfg: SubmitterConfig, request: web.Request):
 
 
 async def store_data(cfg: SubmitterConfig, request: web.Request, input_format: str):
-    data = await request.content.read()
-    g = create_graph(cfg.triple_store.graph_class)
-    g.parse(data=data, format=input_format)
+    content = await request.content.read()
+    encoding = request.charset or DEFAULT_ENCODING
+    data = content.decode(encoding=encoding)
 
-    triples = [
-        f'{s.n3()} {p.n3()} {o.n3()} .' for s, p, o in g
-    ]
+    query = build_query(cfg, data, input_format)
 
     sparql = SPARQLWrapper.SPARQLWrapper(cfg.triple_store.sparql_endpoint)
     sparql.setMethod('POST')
@@ -59,16 +47,7 @@ async def store_data(cfg: SubmitterConfig, request: web.Request, input_format: s
         sparql.setHTTPAuth(SPARQLWrapper.BASIC)
         sparql.setCredentials(cfg.triple_store.auth_username, cfg.triple_store.auth_password)
 
-    if cfg.triple_store.graph_named is True and cfg.triple_store.graph_type:
-        t = rdflib.URIRef(cfg.triple_store.graph_type)
-        graph_uri = None
-        for s, p, o in g.triples((None, rdflib.RDF.type, t)):
-            graph_uri = s.n3()
-        if graph_uri is None:
-            logging.warning(f'Graph URI not found (type: {t})')
-        sparql.setQuery('DROP SILENT GRAPH ' + graph_uri + ';\nCREATE GRAPH ' + graph_uri + ';\nINSERT DATA { GRAPH ' + graph_uri + ' { ' + '\n'.join(triples) + '} };')
-    else:
-        sparql.setQuery('INSERT DATA { ' + '\n'.join(triples) + '}')
+    sparql.setQuery(query)
     sparql.setReturnFormat(SPARQLWrapper.JSON)
     sparql.query().convert()
 
