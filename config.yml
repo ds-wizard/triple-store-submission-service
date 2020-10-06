@@ -5,6 +5,7 @@ triple-store:
 #    username:
 #    password:
 #  graph:
+#    class:
 #    named:
 #    type:
 #
@@ -14,3 +15,7 @@ triple-store:
 #
 #security:
 #  token:
+#
+#query:
+#  extra-queries: false
+#  strategy: basic

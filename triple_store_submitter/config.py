@@ -12,11 +12,12 @@ class MissingConfigurationError(Exception):
 class TripleStoreConfig:
 
     def __init__(self, sparql_endpoint: str, auth_method: str, auth_username: str,
-                 auth_password: str, graph_named: str, graph_type: str):
+                 auth_password: str, graph_class: str, graph_named: str, graph_type: str):
         self.sparql_endpoint = sparql_endpoint
         self.auth_method = auth_method
         self.auth_username = auth_username
         self.auth_password = auth_password
+        self.graph_class = graph_class
         self.graph_named = graph_named
         self.graph_type = graph_type
 
@@ -41,14 +42,23 @@ class LoggingConfig:
         self.message_format = message_format
 
 
+class QueriesConfig:
+
+    def __init__(self, extra_queries: bool, strategy: str):
+        self.extra_queries = extra_queries
+        self.strategy = strategy
+
+
 class SubmitterConfig:
 
     def __init__(self, triple_store: TripleStoreConfig, fdp: FDPConfig,
-                 security: SecurityConfig, logging: LoggingConfig):
+                 security: SecurityConfig, logging: LoggingConfig,
+                 queries: QueriesConfig):
         self.triple_store = triple_store
         self.fdp = fdp
         self.security = security
         self.logging = logging
+        self.queries = queries
 
 
 class SubmitterConfigParser:
@@ -62,6 +72,7 @@ class SubmitterConfigParser:
                 'password': None,
             },
             'graph': {
+                'class': 'Graph',
                 'named': False,
                 'type': None,
             },
@@ -77,6 +88,10 @@ class SubmitterConfigParser:
             'level': 'INFO',
             'format': '%(asctime)s | %(levelname)s | %(module)s: %(message)s',
         },
+        'queries': {
+            'extra-queries': False,
+            'strategy': 'basic',
+        }
     }
 
     REQUIRED = [
@@ -123,6 +138,7 @@ class SubmitterConfigParser:
             auth_method=self.get_or_default('triple-store', 'auth', 'method'),
             auth_username=self.get_or_default('triple-store', 'auth', 'username'),
             auth_password=self.get_or_default('triple-store', 'auth', 'password'),
+            graph_class=self.get_or_default('triple-store', 'graph', 'class'),
             graph_named=self.get_or_default('triple-store', 'graph', 'named'),
             graph_type=self.get_or_default('triple-store', 'graph', 'type'),
         )
@@ -147,6 +163,13 @@ class SubmitterConfigParser:
             message_format=self.get_or_default('logging', 'format'),
         )
 
+    @property
+    def _queries(self):
+        return QueriesConfig(
+            extra_queries=self.get_or_default('queries', 'extra-queries'),
+            strategy=self.get_or_default('queries', 'strategy'),
+        )
+
     def parse_file(self, fp) -> SubmitterConfig:
         self.cfg = yaml.full_load(fp)
         self.validate()
@@ -155,4 +178,5 @@ class SubmitterConfigParser:
             fdp=self._fdp,
             security=self._security,
             logging=self._logging,
+            queries=self._queries,
         )

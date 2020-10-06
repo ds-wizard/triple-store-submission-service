@@ -8,11 +8,23 @@ import warnings
 
 from aiohttp import web
 
-from triple_store_submitter.consts import BuildInfo, ENV_CONFIG
+from triple_store_submitter.consts import BuildInfo, ENV_CONFIG, DEFAULT_ENCODING
 from triple_store_submitter.config import SubmitterConfigParser, SubmitterConfig
+from triple_store_submitter.strategies import build_query
 
 
 warnings.filterwarnings('ignore')
+
+
+INPUT_FORMATS = {
+    'application/n-quads': 'nquads',
+    'application/n-triples': 'nt',
+    'application/rdf+xml': 'xml',
+    'application/trig': 'trig',
+    'text/n3': 'n3',
+    'text/turtle': 'turtle',
+    'text/xml': 'trix',
+}
 
 
 def validate_token(cfg: SubmitterConfig, request: web.Request):
@@ -21,14 +33,12 @@ def validate_token(cfg: SubmitterConfig, request: web.Request):
     return request.headers.get('Authorization') == f'Bearer {cfg.security.token}'
 
 
-async def store_data(cfg: SubmitterConfig, request: web.Request):
-    data = await request.content.read()
-    g = rdflib.Graph()
-    g.parse(data=data, format='turtle')
+async def store_data(cfg: SubmitterConfig, request: web.Request, input_format: str):
+    content = await request.content.read()
+    encoding = request.charset or DEFAULT_ENCODING
+    data = content.decode(encoding=encoding)
 
-    triples = [
-        f'{s.n3()} {p.n3()} {o.n3()} .' for s, p, o in g
-    ]
+    query = build_query(cfg, data, input_format)
 
     sparql = SPARQLWrapper.SPARQLWrapper(cfg.triple_store.sparql_endpoint)
     sparql.setMethod('POST')
@@ -37,16 +47,7 @@ async def store_data(cfg: SubmitterConfig, request: web.Request):
         sparql.setHTTPAuth(SPARQLWrapper.BASIC)
         sparql.setCredentials(cfg.triple_store.auth_username, cfg.triple_store.auth_password)
 
-    if cfg.triple_store.graph_named is True and cfg.triple_store.graph_type:
-        t = rdflib.URIRef(cfg.triple_store.graph_type)
-        graph_uri = None
-        for s, p, o in g.triples((None, rdflib.RDF.type, t)):
-            graph_uri = s.n3()
-        if graph_uri is None:
-            logging.warning(f'Graph URI not found (type: {t})')
-        sparql.setQuery('DROP SILENT GRAPH ' + graph_uri + ';\nCREATE GRAPH ' + graph_uri + ';\nINSERT DATA { GRAPH ' + graph_uri + ' { ' + '\n'.join(triples) + '} };')
-    else:
-        sparql.setQuery('INSERT DATA { ' + '\n'.join(triples) + '}')
+    sparql.setQuery(query)
     sparql.setReturnFormat(SPARQLWrapper.JSON)
     sparql.query().convert()
 
@@ -83,11 +84,12 @@ async def submit_handler(request: web.Request):
 
     if not validate_token(cfg, request):
         raise web.HTTPUnauthorized(text='Invalid token')
-    if request.headers.get('Content-Type').lower() != 'text/turtle':
-        raise web.HTTPUnsupportedMediaType(text='Unsupported content type')
+    content_type = request.headers.get('Content-Type').lower().split(';')[0]
+    if content_type not in INPUT_FORMATS.keys():
+        raise web.HTTPUnsupportedMediaType(text=f'Unsupported content type: {content_type}')
 
     try:
-        await store_data(cfg, request)
+        await store_data(cfg, request, input_format=INPUT_FORMATS[content_type])
     except Exception as e:
         msg = f'Failed to store data in triple store: {e}'
         logging.warning(msg)
