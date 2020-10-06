@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.2.0]
+
 ### Added
 
 - Possibility to specify type of graph used with rdflib
@@ -33,6 +35,7 @@ Initial version for simple inserts into triple stores via SPARQL query.
 - Optional use of named graph that is purged upon insertion
 - Optional security using configured token
 
-[Unreleased]: /../../compare/v1.1.0...develop
+[Unreleased]: /../../compare/v1.2.0...develop
 [1.0.0]: /../../tree/v1.0.0
 [1.1.0]: /../../tree/v1.1.0
+[1.2.0]: /../../tree/v1.2.0
